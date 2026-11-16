@@ -1,0 +1,49 @@
+[
+  {
+    "arquivo": "lei_13709_2018.json",
+    "norma": "Lei 13.709/2018 (LGPD)",
+    "orgao": "normas.leg.br (portal de legislação do Congresso Nacional)",
+    "url": "https://normas.leg.br/api/public/normas?urn=urn:lex:br:federal:lei:2018-08-14;13709&tipo_documento=maior-detalhe",
+    "data_versao": "2026-02-25 (última alteração segundo a API); obtido em 2026-11-16",
+    "sha256": "cf507e267013ff009896df1b2b2521311efff42ea80f4cdc44ebda585f83f5a2",
+    "urn": "urn:lex:br:federal:lei:2018-08-14;13709",
+    "pagina": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2018-08-14;13709",
+    "titulo_oficial": "Lei nº 13.709, de 14 de agosto de 2018",
+    "versoes_de_texto_na_fonte": [
+      "PublicacaoOriginal (UnofficialLegalValue)",
+      "CompilacaoMonoVigenteNaCD (UnofficialLegalValue)"
+    ],
+    "licenca": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  {
+    "arquivo": "lei_14133_2021.json",
+    "norma": "Lei 14.133/2021 (licitações e contratos)",
+    "orgao": "normas.leg.br (portal de legislação do Congresso Nacional)",
+    "url": "https://normas.leg.br/api/public/normas?urn=urn:lex:br:federal:lei:2021-04-01;14133&tipo_documento=maior-detalhe",
+    "data_versao": "2026-07-20 (última alteração segundo a API); obtido em 2026-11-16",
+    "sha256": "27be649453cb93b368bd269ce633410f044a22ad940c9149e59cb747aa792913",
+    "urn": "urn:lex:br:federal:lei:2021-04-01;14133",
+    "pagina": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2021-04-01;14133",
+    "titulo_oficial": "Lei nº 14.133, de 01 de abril de 2021",
+    "versoes_de_texto_na_fonte": [
+      "PublicacaoOriginal (UnofficialLegalValue)",
+      "PublicacaoVetoParcialmenteRejeitado (UnofficialLegalValue)"
+    ],
+    "licenca": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  {
+    "arquivo": "lei_15352_2026.json",
+    "norma": "Lei 15.352/2026",
+    "orgao": "normas.leg.br (portal de legislação do Congresso Nacional)",
+    "url": "https://normas.leg.br/api/public/normas?urn=urn:lex:br:federal:lei:2026-02-25;15352&tipo_documento=maior-detalhe",
+    "data_versao": "2026-02-25 (data da lei; a API não registra alteração); obtido em 2026-11-16",
+    "sha256": "7b20a85aab42faebe1c583f3998bc8cea90328a65e2c1107997d5b38c1edb3c4",
+    "urn": "urn:lex:br:federal:lei:2026-02-25;15352",
+    "pagina": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2026-02-25;15352",
+    "titulo_oficial": "Lei nº 15.352, de 25 de fevereiro de 2026",
+    "versoes_de_texto_na_fonte": [
+      "PublicacaoOriginal (UnofficialLegalValue)"
+    ],
+    "licenca": "https://creativecommons.org/licenses/by/4.0/"
+  }
+]

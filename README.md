@@ -9,6 +9,61 @@ seguintes estão em [ROADMAP.md](ROADMAP.md) e não foram implementadas.
 Estado atual: Fase 1 completa. Fase 0 (perguntas e plano) aprovada em 16/11/2026 com
 as recomendações propostas, resumidas em "Decisões" no fim deste arquivo.
 
+## Estudar a LGPD: uso diário
+
+Tudo já vem configurado: a árvore de assuntos da LGPD (`lgpd_2026`) está em `dados/` e o
+banco se monta sozinho na primeira vez que você roda qualquer comando.
+
+1. Leia a lei em [leitura/lgpd.md](leitura/lgpd.md). É o texto vigente copiado da fonte,
+   com a norma que deu cada redação e a marca **[Lei 15.352]** nos dispositivos que ela
+   alterou. No topo há um confronto com a Lei 15.352: onde a consolidação não acompanhou
+   a alteração, aparece a redação certa logo abaixo do dispositivo.
+2. Resolva itens Cebraspe fora do sistema (prova em PDF, caderno). Ao terminar cada bloco,
+   registre:
+
+   ```
+   uv run estudo log --fonte cebraspe_2024_anatel
+   [cebraspe_2024_anatel | (sem assunto)] > 12 C E bases
+   tipo de erro: 1 nao_sabia  2 confusao  3 enunciado  4 pressa
+   > 1
+   [cebraspe_2024_anatel | LGPD.C2.S1] > 13 E E
+   [cebraspe_2024_anatel | LGPD.C2.S1] > 14 C C 3 dir
+   ```
+
+   Número do item, gabarito, sua resposta. Confiança só quando não for 2. O assunto
+   continua o mesmo até você digitar outro apelido.
+3. Uma vez por semana: `uv run estudo relatorio` e `uv run estudo revisar`.
+4. Faça commit de `dados/` de vez em quando. É lá que fica o seu histórico; o banco é
+   descartável.
+
+Apelidos dos assuntos (os artigos de cada um saem da estrutura da fonte):
+
+| Apelido | Assunto | Arts. |
+| --- | --- | --- |
+| `prel` | Cap. I, disposições preliminares | 1º a 6º |
+| `bases` | Cap. II, Seção I, requisitos para o tratamento | 7º a 10 |
+| `sens` | Cap. II, Seção II, dados sensíveis | 11 a 13 |
+| `crianca` | Cap. II, Seção III, crianças e adolescentes | 14 |
+| `term` | Cap. II, Seção IV, término do tratamento | 15 e 16 |
+| `dir` | Cap. III, direitos do titular | 17 a 22 |
+| `pubreg` | Cap. IV, Seção I, poder público: regras | 23 a 30 |
+| `pubresp` | Cap. IV, Seção II, poder público: responsabilidade | 31 e 32 |
+| `transf` | Cap. V, transferência internacional | 33 a 36 |
+| `ctrl` | Cap. VI, Seção I, controlador e operador | 37 a 40 |
+| `enc` | Cap. VI, Seção II, encarregado | 41 |
+| `resp` | Cap. VI, Seção III, responsabilidade e ressarcimento | 42 a 45 |
+| `sigilo` | Cap. VII, Seção I, segurança e sigilo | 46 a 49 |
+| `gov` | Cap. VII, Seção II, boas práticas e governança | 50 e 51 |
+| `sanc` | Cap. VIII, Seção I, sanções administrativas | 52 a 54 |
+| `anpd` | Cap. IX, Seção I, a Agência (ANPD) | 55 a 57, com 55-A a 55-M |
+| `cnpd` | Cap. IX, Seção II, Conselho Nacional | 58, 58-A, 58-B e 59 |
+| `finais` | Cap. X, disposições finais e transitórias | 60 a 65 |
+
+Os capítulos também têm apelido (`trat`, `pub`, `agentes`, `seg`, `fisc`, `anpdcap`) para
+item que pega o capítulo inteiro. `uv run estudo arvore listar` mostra a lista completa.
+O nome da Seção I do Capítulo IX na árvore vem da Lei 15.352, porque a consolidação ainda
+traz o nome antigo.
+
 ## Começar de novo depois de meses
 
 ```
@@ -83,7 +138,8 @@ repete a pergunta. Em `confusao`, o sistema pede o assunto confundido. Linha vaz
 | `estudo arvore mapear CSV` | mapeia assuntos de uma árvore para outra (`de_arvore,de_codigo,para_arvore,para_codigo`) |
 | `estudo arvore sumario ARQ --prefixo LGPD ...` | gera CSV de árvore com os títulos, capítulos e seções do arquivo em `fontes/` |
 | `estudo arvore listar` | assuntos da árvore ativa |
-| `estudo fontes baixar` | baixa LGPD, Lei 15.352/2026 e Lei 14.133/2021 do Planalto e registra o hash |
+| `estudo leitura lgpd` | regera `leitura/lgpd.md` a partir de `fontes/` |
+| `estudo fontes baixar` | baixa LGPD, Lei 15.352/2026 e Lei 14.133/2021 do normas.leg.br e registra o hash |
 | `estudo fontes registrar ARQ ...` | registra arquivo que você colocou em `fontes/` |
 
 ## Como ler o relatório
@@ -140,9 +196,35 @@ auditoria aponta as tentativas que ficaram incoerentes.
 
 ## Fontes
 
-`fontes/index.json` guarda arquivo, norma, órgão, URL oficial, data da versão e SHA-256.
-O Planalto não traz data de versão na página compilada, então `estudo fontes baixar`
-grava a data do download. O endereço da Lei 15.352/2026 segue o padrão do Planalto e não
-foi conferido; se ele falhar, pegue o link na lista de leis de 2026
-(https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/_leis2026.htm) e use
-`estudo fontes registrar`. Ficha da lei no Senado: https://legis.senado.leg.br/norma/42835651.
+As três leis do núcleo já estão em `fontes/`, baixadas em 16/11/2026 por
+`estudo fontes baixar`. A origem é a API pública do normas.leg.br, o portal de
+legislação do Congresso Nacional, e cada arquivo é a resposta JSON gravada sem
+alteração. O JSON traz um registro por dispositivo (artigo, parágrafo, inciso, alínea)
+com todas as versões datadas e a norma que fez cada alteração, o que serve à ingestão
+da Fase 2.
+
+O Planalto não serviu: de fora do Brasil, todo endereço de `planalto.gov.br/ccivil_03`
+redireciona para a página inicial do gov.br, e o comando recusa gravar quando há
+redirecionamento.
+
+`fontes/index.json` guarda arquivo, norma, origem, URL da API, URN, página para leitura
+humana, data da versão, SHA-256, licença (CC BY 4.0) e os tipos de texto que a fonte
+declara. Pontos que valem saber antes de usar esses textos:
+
+- A própria fonte marca todos os textos como `UnofficialLegalValue`. O texto com valor
+  oficial é o do Diário Oficial; compilação, aqui ou no Planalto, não é oficial.
+- A consolidação da LGPD tem pelo menos uma lacuna conferida: o nome da Seção I do
+  Capítulo IX continua "Da Autoridade Nacional de Proteção de Dados (ANPD)", embora a
+  Lei 15.352/2026 o altere para "Da Agência Nacional de Proteção de Dados". Por isso a
+  Lei 15.352 fica também em arquivo próprio, e a Fase 2 precisa conferir cada
+  dispositivo alterado contra a lei alteradora.
+- O HTML "Compilação Monovigente" que o portal oferece para a LGPD está desatualizado
+  (última alteração citada de 2022) e não foi usado.
+
+Para outra fonte, coloque o arquivo em `fontes/` com nome minúsculo do tipo
+`lei_13709_2018.html` e rode `estudo fontes registrar`.
+
+`dados/propostas/arvore_14133.csv` tem os títulos e capítulos da 14.133, ainda sem
+apelidos e não carregada. Quando for estudar essa lei ou as disciplinas de TI, junte os
+assuntos novos aos da LGPD num CSV só e carregue como árvore nova (`estudo arvore
+carregar ... --nome x`); a árvore antiga fica preservada e as tentativas continuam valendo.

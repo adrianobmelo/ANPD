@@ -11,7 +11,7 @@ from typing import Optional
 import typer
 
 from . import arvores, auditoria, fontes, importar as imp, log as logmod, relatorio as rel
-from . import revisar as rev, topicos
+from . import leitura, reconstrucao, revisar as rev, topicos
 from .db import caminho_banco, conectar
 from .registro import ErroRegistro, classificar_item, diario_classificacoes, diario_tentativas
 
@@ -31,6 +31,15 @@ def _ler(prompt: str) -> str:
     return linha.rstrip("\n")
 
 
+def _abrir():
+    """Abre o banco. Se ele estiver vazio e dados/ tiver diário, monta a partir dele."""
+    con = conectar()
+    if reconstrucao.banco_vazio(con) and reconstrucao.ha_diario():
+        n = reconstrucao.reconstruir_em(con)
+        typer.echo(f"(banco montado a partir de dados/: {n} tentativas)", err=True)
+    return con
+
+
 def _falha(msg: str, codigo: int = 1) -> None:
     typer.echo(f"erro: {msg}", err=True)
     raise typer.Exit(codigo)
@@ -44,7 +53,7 @@ def log(
     assunto: Optional[str] = typer.Option(None, "--assunto", "-a", help="Assunto inicial."),
 ):
     """Registra itens em modo turbo. 'q' ou linha vazia encerra; '?' mostra a sintaxe."""
-    con = conectar()
+    con = _abrir()
     sessao = logmod.Sessao(con, _ler, fonte=fonte)
     try:
         if assunto:
@@ -74,7 +83,7 @@ def importar_cmd(
     dry_run: bool = typer.Option(False, "--dry-run", help="Valida tudo e não grava nada."),
 ):
     """Importa tentativas de CSV, em transação única: ou entra tudo, ou nada."""
-    con = conectar()
+    con = _abrir()
     res = imp.importar(con, arquivo, dry_run=dry_run)
     typer.echo(f"{res.lidas} linhas lidas, {res.aceitas} válidas, {len(res.rejeitadas)} rejeitadas")
     for n, motivo in res.rejeitadas:
@@ -90,7 +99,7 @@ def importar_cmd(
 @app.command()
 def classificar():
     """Percorre a fila de itens sem assunto. Enter pula, 'q' sai."""
-    con = conectar()
+    con = _abrir()
     fila = con.execute(
         "SELECT id, fonte, referencia, gabarito, enunciado FROM items"
         " WHERE topic_id IS NULL ORDER BY fonte, referencia"
@@ -122,13 +131,13 @@ def classificar():
 @app.command()
 def relatorio():
     """Saldo, curva de confiança, timidez, erros, pares e prioridades."""
-    typer.echo(rel.gerar(conectar(), date.today()))
+    typer.echo(rel.gerar(_abrir(), date.today()))
 
 
 @app.command()
 def revisar(limite: int = typer.Option(20, help="Quantos itens mostrar.")):
     """O que volta hoje, com o motivo ao lado."""
-    con = conectar()
+    con = _abrir()
     itens = rev.itens_para_revisar(con, date.today(), limite)
     if not itens:
         typer.echo("nada para revisar: nenhum item com erro ou chute certo pendente")
@@ -139,7 +148,7 @@ def revisar(limite: int = typer.Option(20, help="Quantos itens mostrar.")):
 @app.command("auditoria")
 def auditoria_cmd():
     """Inconsistências. Sai com código 1 quando há erro crítico."""
-    con = conectar()
+    con = _abrir()
     problemas = auditoria.auditar(con)
     criticos = [p for p in problemas if p.critico]
     for p in problemas:
@@ -165,15 +174,10 @@ def reconstruir(
             _falha(f"{alvo} existe; use --forcar para apagá-lo e reconstruir")
         alvo.unlink()
     con = conectar(alvo)
-    arvores.reaplicar(con)
-    if diario_tentativas().exists():
-        res = imp.importar(con, diario_tentativas(), dry_run=False, diario=False)
-        if res.rejeitadas:
-            for n, motivo in res.rejeitadas:
-                typer.echo(f"  tentativas.csv linha {n}: {motivo}")
-            _falha("diário de tentativas com linhas inválidas; banco parcial descartado")
-    if diario_classificacoes().exists():
-        imp.importar_classificacoes(con, diario_classificacoes())
+    try:
+        reconstrucao.reconstruir_em(con)
+    except ErroRegistro as e:
+        _falha(str(e))
     n = con.execute("SELECT COUNT(*) FROM attempts").fetchone()[0]
     typer.echo(f"banco reconstruído em {alvo}: {n} tentativas")
 
@@ -188,7 +192,7 @@ def arvore_carregar(
 ):
     """Carrega árvore nova de CSV (codigo,nome,disciplina,parent_codigo,aliases)."""
     try:
-        arvores.carregar(conectar(), arquivo, nome, ativar)
+        arvores.carregar(_abrir(), arquivo, nome, ativar)
     except topicos.ErroTopico as e:
         _falha(str(e))
     typer.echo(f"árvore '{nome}' carregada" + (" e ativada" if ativar else ""))
@@ -197,7 +201,7 @@ def arvore_carregar(
 @arvore_app.command("ativar")
 def arvore_ativar(nome: str):
     try:
-        arvores.ativar(conectar(), nome)
+        arvores.ativar(_abrir(), nome)
     except topicos.ErroTopico as e:
         _falha(str(e))
     typer.echo(f"árvore '{nome}' ativa")
@@ -207,7 +211,7 @@ def arvore_ativar(nome: str):
 def arvore_mapear(arquivo: Path = typer.Argument(..., exists=True, dir_okay=False)):
     """Mapeia assuntos de uma árvore para outra (de_arvore,de_codigo,para_arvore,para_codigo)."""
     try:
-        n = arvores.mapear(conectar(), arquivo)
+        n = arvores.mapear(_abrir(), arquivo)
     except topicos.ErroTopico as e:
         _falha(str(e))
     typer.echo(f"{n} mapeamentos gravados")
@@ -234,7 +238,7 @@ def arvore_sumario(
 
 @arvore_app.command("listar")
 def arvore_listar():
-    con = conectar()
+    con = _abrir()
     for r in con.execute(
         "SELECT t.codigo, t.nome, t.disciplina, group_concat(a.alias, '|') AS aliases"
         " FROM topics t JOIN topic_trees tt ON tt.id = t.tree_id AND tt.ativa = 1"
@@ -247,7 +251,7 @@ def arvore_listar():
 
 @fontes_app.command("baixar")
 def fontes_baixar():
-    """Baixa o núcleo (LGPD, 15.352, 14.133) das URLs oficiais do Planalto."""
+    """Baixa LGPD, 15.352 e 14.133 do normas.leg.br (Congresso Nacional) e registra o hash."""
     falhas = 0
     for item in fontes.CATALOGO:
         try:
@@ -274,6 +278,30 @@ def fontes_registrar(
     except fontes.ErroFonte as ex:
         _falha(str(ex))
     typer.echo(f"ok {e['arquivo']} sha256 {e['sha256'][:12]}")
+
+
+# ------------------------------------------------------------------- leitura
+
+LEITURAS = {
+    "lgpd": ("lei_13709_2018.json", "lei_15352_2026.json", "LGPD vigente para leitura",
+             "Lei 15.352"),
+}
+
+
+@app.command("leitura")
+def leitura_cmd(lei: str = typer.Argument("lgpd", help="Por enquanto: lgpd.")):
+    """Gera leitura/<lei>.md: texto vigente literal, com as alterações recentes marcadas."""
+    if lei not in LEITURAS:
+        _falha(f"leitura disponível: {', '.join(LEITURAS)}")
+    arq, alteradora, titulo, marcar = LEITURAS[lei]
+    try:
+        md = leitura.gerar_markdown(arq, alteradora, titulo, marcar=marcar)
+    except (FileNotFoundError, ValueError) as e:
+        _falha(str(e))
+    destino = fontes.pasta_fontes().parent / "leitura" / f"{lei}.md"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(md, encoding="utf-8")
+    typer.echo(f"gerado {destino}")
 
 
 if __name__ == "__main__":

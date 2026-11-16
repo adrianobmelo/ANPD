@@ -1,0 +1,26 @@
+codigo,nome,disciplina,parent_codigo,aliases
+LGPD,Lei 13.709/2018 (LGPD),LGPD,,lgpd
+LGPD.C1,CAPÍTULO I - DISPOSIÇÕES PRELIMINARES,LGPD,LGPD,prel
+LGPD.C2,CAPÍTULO II - DO TRATAMENTO DE DADOS PESSOAIS,LGPD,LGPD,trat
+LGPD.C2.S1,Seção I - Dos Requisitos para o Tratamento de Dados Pessoais,LGPD,LGPD.C2,bases
+LGPD.C2.S2,Seção II - Do Tratamento de Dados Pessoais Sensíveis,LGPD,LGPD.C2,sens
+LGPD.C2.S3,Seção III - Do Tratamento de Dados Pessoais de Crianças e de Adolescentes,LGPD,LGPD.C2,crianca
+LGPD.C2.S4,Seção IV - Do Término do Tratamento de Dados,LGPD,LGPD.C2,term
+LGPD.C3,CAPÍTULO III - DOS DIREITOS DO TITULAR,LGPD,LGPD,dir
+LGPD.C4,CAPÍTULO IV - DO TRATAMENTO DE DADOS PESSOAIS PELO PODER PÚBLICO,LGPD,LGPD,pub
+LGPD.C4.S1,Seção I - Das Regras,LGPD,LGPD.C4,pubreg
+LGPD.C4.S2,Seção II - Da Responsabilidade,LGPD,LGPD.C4,pubresp
+LGPD.C5,CAPÍTULO V - DA TRANSFERÊNCIA INTERNACIONAL DE DADOS,LGPD,LGPD,transf
+LGPD.C6,CAPÍTULO VI - DOS AGENTES DE TRATAMENTO DE DADOS PESSOAIS,LGPD,LGPD,agentes
+LGPD.C6.S1,Seção I - Do Controlador e do Operador,LGPD,LGPD.C6,ctrl
+LGPD.C6.S2,Seção II - Do Encarregado pelo Tratamento de Dados Pessoais,LGPD,LGPD.C6,enc
+LGPD.C6.S3,Seção III - Da Responsabilidade e do Ressarcimento de Danos,LGPD,LGPD.C6,resp
+LGPD.C7,CAPÍTULO VII - DA SEGURANÇA E DAS BOAS PRÁTICAS,LGPD,LGPD,seg
+LGPD.C7.S1,Seção I - Da Segurança e do Sigilo de Dados,LGPD,LGPD.C7,sigilo
+LGPD.C7.S2,Seção II - Das Boas Práticas e da Governança,LGPD,LGPD.C7,gov
+LGPD.C8,CAPÍTULO VIII - DA FISCALIZAÇÃO,LGPD,LGPD,fisc
+LGPD.C8.S1,Seção I - Das Sanções Administrativas,LGPD,LGPD.C8,sanc
+LGPD.C9,CAPÍTULO IX - DA AGÊNCIA NACIONAL DE PROTEÇÃO DE DADOS E DO CONSELHO NACIONAL DE PROTEÇÃO DE DADOS PESSOAIS E DA PRIVACIDADE,LGPD,LGPD,anpdcap
+LGPD.C9.S1,Seção I - Da Agência Nacional de Proteção de Dados,LGPD,LGPD.C9,anpd
+LGPD.C9.S2,Seção II - Do Conselho Nacional de Proteção de Dados Pessoais e da Privacidade,LGPD,LGPD.C9,cnpd
+LGPD.C10,CAPÍTULO X - DISPOSIÇÕES FINAIS E TRANSITÓRIAS,LGPD,LGPD,finais
