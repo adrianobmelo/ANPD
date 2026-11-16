@@ -1,0 +1,9 @@
+# O banco fica fora do git (regra 7). Por padrão ele nem fica nesta pasta.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
