@@ -54,3 +54,14 @@ def test_reconstruir_nao_apaga_sem_forcar(con):
     res = CliRunner().invoke(app, ["reconstruir"])
     assert res.exit_code == 1
     assert caminho_banco().exists()
+
+
+def test_banco_vazio_se_monta_sozinho_a_partir_de_dados(con, tmp_path):
+    Sessao(con, Respostas("1"), fonte="p").processar("1 C E dir")
+    con.close()
+    caminho_banco().unlink()
+    res = CliRunner().invoke(app, ["revisar"])
+    assert res.exit_code == 0, res.output
+    assert "p/1" in res.output
+    novo = conectar()
+    assert novo.execute("SELECT COUNT(*) FROM attempts").fetchone()[0] == 1
