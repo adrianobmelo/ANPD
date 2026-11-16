@@ -8,6 +8,7 @@ Com isso a reconstrução refaz a mesma sequência.
 from __future__ import annotations
 
 import csv
+import json
 import re
 import shutil
 import sqlite3
@@ -140,6 +141,8 @@ def sumario(caminho: Path, prefixo: str, disciplina: str, nome_raiz: str) -> lis
     arquivo; nada é escrito de memória. Trechos riscados (texto revogado em
     <strike>) não são tratados aqui: revise o CSV antes de carregar.
     """
+    if caminho.suffix == ".json":
+        return sumario_json(caminho, prefixo, disciplina, nome_raiz)
     linhas = linhas_texto(caminho)
     saida: list[dict] = [{"codigo": prefixo, "nome": nome_raiz, "disciplina": disciplina,
                           "parent_codigo": "", "aliases": ""}]
@@ -175,3 +178,67 @@ def gravar_sumario(linhas: list[dict], destino: Path) -> None:
         w = csv.DictWriter(f, fieldnames=topicos.COLUNAS_ARVORE)
         w.writeheader()
         w.writerows(linhas)
+
+
+# ------------------------------------------------------- sumário do normas.leg.br
+
+TIPOS_CABECALHO = {"livro": "L", "parte": "P", "titulo": "T", "capitulo": "C",
+                   "secao": "S", "subsecao": "SS"}
+
+
+def versoes(no: dict) -> list[dict]:
+    we = no.get("workExample") or []
+    return we if isinstance(we, list) else [we]
+
+
+def versao_atual(no: dict) -> dict:
+    """Versão de data mais recente do dispositivo, como a fonte a informa."""
+    return max(versoes(no), key=lambda w: w.get("legislationDate", ""))
+
+
+def _texto(v: dict) -> str:
+    return " ".join(re.sub(r"<[^>]+>", "", v.get("text") or "").split())
+
+
+def sumario_json(caminho: Path, prefixo: str, disciplina: str, nome_raiz: str) -> list[dict]:
+    """Títulos, capítulos e seções do JSON do normas.leg.br, na ordem do arquivo.
+
+    Nome = rótulo e texto da versão mais recente do cabeçalho, literais.
+    Cabeçalho cuja versão mais recente é '(Suprimido)' ou '(Revogado)' fica de fora.
+    """
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    saida = [{"codigo": prefixo, "nome": nome_raiz, "disciplina": disciplina,
+              "parent_codigo": "", "aliases": ""}]
+    pilha: list[tuple[int, str]] = []
+
+    def visitar(o, profundidade: int) -> None:
+        if isinstance(o, list):
+            for x in o:
+                visitar(x, profundidade)
+            return
+        if not isinstance(o, dict):
+            return
+        tipo = (o.get("legislationType") or {}).get("@id", "").rsplit(":", 1)[-1]
+        if tipo in TIPOS_CABECALHO and o.get("workExample"):
+            v = versao_atual(o)
+            rotulo, texto = (v.get("name") or "").strip(), _texto(v)
+            if "(Suprimido)" not in texto + rotulo and "(Revogado)" not in texto + rotulo:
+                ident = o["legislationIdentifier"].split("!", 1)[-1].split(",")[0]
+                partes = []
+                for parte in ident.split("_"):
+                    m = re.fullmatch(r"([a-z]+)(\d+(?:-\d+)?)", parte)
+                    sigla = {"tit": "T", "cap": "C", "sec": "S", "subsec": "SS",
+                             "liv": "L", "prt": "P"}.get(m.group(1) if m else "", parte.upper())
+                    partes.append(sigla + (m.group(2) if m else ""))
+                codigo = f"{prefixo}." + ".".join(partes)
+                while pilha and pilha[-1][0] >= profundidade:
+                    pilha.pop()
+                pai = pilha[-1][1] if pilha else prefixo
+                saida.append({"codigo": codigo, "nome": f"{rotulo} - {texto}" if texto else rotulo,
+                              "disciplina": disciplina, "parent_codigo": pai, "aliases": ""})
+                pilha.append((profundidade, codigo))
+        if "hasPart" in o:
+            visitar(o["hasPart"], profundidade + 1)
+
+    visitar(dados.get("hasPart"), 0)
+    return saida

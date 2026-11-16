@@ -83,7 +83,7 @@ repete a pergunta. Em `confusao`, o sistema pede o assunto confundido. Linha vaz
 | `estudo arvore mapear CSV` | mapeia assuntos de uma árvore para outra (`de_arvore,de_codigo,para_arvore,para_codigo`) |
 | `estudo arvore sumario ARQ --prefixo LGPD ...` | gera CSV de árvore com os títulos, capítulos e seções do arquivo em `fontes/` |
 | `estudo arvore listar` | assuntos da árvore ativa |
-| `estudo fontes baixar` | baixa LGPD, Lei 15.352/2026 e Lei 14.133/2021 do Planalto e registra o hash |
+| `estudo fontes baixar` | baixa LGPD, Lei 15.352/2026 e Lei 14.133/2021 do normas.leg.br e registra o hash |
 | `estudo fontes registrar ARQ ...` | registra arquivo que você colocou em `fontes/` |
 
 ## Como ler o relatório
@@ -140,9 +140,36 @@ auditoria aponta as tentativas que ficaram incoerentes.
 
 ## Fontes
 
-`fontes/index.json` guarda arquivo, norma, órgão, URL oficial, data da versão e SHA-256.
-O Planalto não traz data de versão na página compilada, então `estudo fontes baixar`
-grava a data do download. O endereço da Lei 15.352/2026 segue o padrão do Planalto e não
-foi conferido; se ele falhar, pegue o link na lista de leis de 2026
-(https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/_leis2026.htm) e use
-`estudo fontes registrar`. Ficha da lei no Senado: https://legis.senado.leg.br/norma/42835651.
+As três leis do núcleo já estão em `fontes/`, baixadas em 16/11/2026 por
+`estudo fontes baixar`. A origem é a API pública do normas.leg.br, o portal de
+legislação do Congresso Nacional, e cada arquivo é a resposta JSON gravada sem
+alteração. O JSON traz um registro por dispositivo (artigo, parágrafo, inciso, alínea)
+com todas as versões datadas e a norma que fez cada alteração, o que serve à ingestão
+da Fase 2.
+
+O Planalto não serviu: de fora do Brasil, todo endereço de `planalto.gov.br/ccivil_03`
+redireciona para a página inicial do gov.br, e o comando recusa gravar quando há
+redirecionamento.
+
+`fontes/index.json` guarda arquivo, norma, origem, URL da API, URN, página para leitura
+humana, data da versão, SHA-256, licença (CC BY 4.0) e os tipos de texto que a fonte
+declara. Pontos que valem saber antes de usar esses textos:
+
+- A própria fonte marca todos os textos como `UnofficialLegalValue`. O texto com valor
+  oficial é o do Diário Oficial; compilação, aqui ou no Planalto, não é oficial.
+- A consolidação da LGPD tem pelo menos uma lacuna conferida: o nome da Seção I do
+  Capítulo IX continua "Da Autoridade Nacional de Proteção de Dados (ANPD)", embora a
+  Lei 15.352/2026 o altere para "Da Agência Nacional de Proteção de Dados". Por isso a
+  Lei 15.352 fica também em arquivo próprio, e a Fase 2 precisa conferir cada
+  dispositivo alterado contra a lei alteradora.
+- O HTML "Compilação Monovigente" que o portal oferece para a LGPD está desatualizado
+  (última alteração citada de 2022) e não foi usado.
+
+Para outra fonte, coloque o arquivo em `fontes/` com nome minúsculo do tipo
+`lei_13709_2018.html` e rode `estudo fontes registrar`.
+
+`dados/propostas/arvore_provisoria.csv` é a árvore provisória gerada por
+`estudo arvore sumario` a partir dos capítulos e seções da LGPD e da 14.133. Ainda não
+foi carregada: acrescente as disciplinas de TI e segurança, aliases curtos para digitar
+no `log`, e carregue com `estudo arvore carregar dados/propostas/arvore_provisoria.csv
+--nome provisoria_2026`.

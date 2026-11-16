@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from estudo import arvores, metricas, topicos
@@ -54,3 +55,32 @@ def test_sumario_usa_so_o_texto_do_arquivo(tmp_path):
     for l in linhas[1:]:
         cabecalho, _, resto = l["nome"].partition(" - ")
         assert cabecalho in texto and resto in texto
+
+
+def no(tipo, ident, versoes, filhos=None):
+    d = {"legislationIdentifier": f"urn:x!{ident}",
+         "legislationType": {"@id": f"urn:lex:br:federal:tipo.dispositivo:{tipo}"},
+         "workExample": versoes}
+    if filhos:
+        d["hasPart"] = filhos
+    return d
+
+
+def test_sumario_do_json_usa_versao_mais_recente_e_ignora_suprimido(tmp_path):
+    dados = {"hasPart": no("articulacao", "articulacao", {"legislationDate": "2018-08-14"}, [
+        no("capitulo", "cap1", [{"legislationDate": "2018-08-14", "name": "CAPÍTULO I", "text": "ANTIGO"},
+                                {"legislationDate": "2026-02-25", "name": "CAPÍTULO I", "text": "NOVO"}], [
+            no("secao", "cap1_sec1", {"legislationDate": "2018-08-14", "name": "Seção I", "text": "Das Regras"}),
+            no("artigo", "art1", {"legislationDate": "2018-08-14", "name": "Art. 1º"}),
+        ]),
+        no("capitulo", "cap2,mpv-1-2018", {"legislationDate": "2019-01-01", "name": "CAPÍTULO II",
+                                            "text": "(Suprimido)"}),
+    ])}
+    arq = tmp_path / "lei_1_2018.json"
+    arq.write_text(json.dumps(dados), encoding="utf-8")
+    linhas = arvores.sumario(arq, "X", "Direito", "Lei X")
+    assert [(l["codigo"], l["parent_codigo"], l["nome"]) for l in linhas] == [
+        ("X", "", "Lei X"),
+        ("X.C1", "X", "CAPÍTULO I - NOVO"),
+        ("X.C1.S1", "X.C1", "Seção I - Das Regras"),
+    ]

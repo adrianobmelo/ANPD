@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import date
@@ -16,28 +18,22 @@ from pathlib import Path
 
 from .db import pasta_fontes
 
-NOME_VALIDO = re.compile(r"^[a-z0-9]+(_[a-z0-9]+)*\.(html|htm|pdf|txt)$")
+NOME_VALIDO = re.compile(r"^[a-z0-9]+(_[a-z0-9]+)*\.(html|htm|pdf|txt|json)$")
 
-# Catálogo do núcleo inicial. URLs oficiais do Planalto.
+API_NORMAS = "https://normas.leg.br/api/public/normas?urn={urn}&tipo_documento=maior-detalhe"
+PAGINA_NORMAS = "https://normas.leg.br/?urn={urn}"
+ORIGEM_NORMAS = "normas.leg.br (portal de legislação do Congresso Nacional)"
+
+# Núcleo inicial. Fonte: dados estruturados do normas.leg.br, um registro por
+# dispositivo com todas as versões datadas. O Planalto redireciona acessos de
+# fora do Brasil para a página inicial, então não serve como fonte automática.
 CATALOGO = [
-    {
-        "arquivo": "lei_13709_2018.html",
-        "norma": "Lei 13.709/2018 (LGPD), texto compilado",
-        "orgao": "Presidência da República",
-        "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm",
-    },
-    {
-        "arquivo": "lei_15352_2026.html",
-        "norma": "Lei 15.352/2026",
-        "orgao": "Presidência da República",
-        "url": "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/L15352.htm",
-    },
-    {
-        "arquivo": "lei_14133_2021.html",
-        "norma": "Lei 14.133/2021 (licitações e contratos)",
-        "orgao": "Presidência da República",
-        "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm",
-    },
+    {"arquivo": "lei_13709_2018.json", "norma": "Lei 13.709/2018 (LGPD)",
+     "urn": "urn:lex:br:federal:lei:2018-08-14;13709", "numero": "13.709"},
+    {"arquivo": "lei_15352_2026.json", "norma": "Lei 15.352/2026",
+     "urn": "urn:lex:br:federal:lei:2026-02-25;15352", "numero": "15.352"},
+    {"arquivo": "lei_14133_2021.json", "norma": "Lei 14.133/2021 (licitações e contratos)",
+     "urn": "urn:lex:br:federal:lei:2021-04-01;14133", "numero": "14.133"},
 ]
 
 
@@ -87,24 +83,64 @@ def registrar(arquivo: str, norma: str, orgao: str, url: str, data_versao: str) 
     return entrada
 
 
-def baixar(item: dict, timeout: int = 60) -> dict:
-    """Baixa da URL oficial, grava em fontes/ e registra. data_versao = data do download,
-    porque a página compilada do Planalto não traz data de versão própria."""
+def _versoes_de_texto(dados: dict) -> list[str]:
+    enc = dados.get("encoding") or []
+    enc = enc if isinstance(enc, list) else [enc]
+    return [f"{e.get('additionalType')} ({e.get('legislationLegalValue')})"
+            for e in enc if isinstance(e, dict)]
+
+
+def baixar(item: dict, timeout: int = 120) -> dict:
+    """Baixa o JSON da norma no normas.leg.br e grava os bytes como vieram.
+
+    O arquivo gravado é a resposta da API, sem nenhuma transformação; o hash
+    vale para esses bytes. data_versao é a dateModified informada pela API
+    (ou a data da lei, quando ela nunca foi alterada).
+    """
+    url = API_NORMAS.format(urn=item["urn"])
+    req = urllib.request.Request(url, headers={"User-Agent": "estudo-anpd/0.1",
+                                               "Accept": "application/json"})
+    for tentativa in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status != 200:
+                    raise ErroFonte(f"{url} respondeu {resp.status}")
+                final = resp.geturl()
+                conteudo = resp.read()
+            break
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            if tentativa == 2:
+                raise
+            time.sleep(2 * (tentativa + 1))
+    if final != url:
+        raise ErroFonte(f"{url} redirecionou para {final}; nada foi gravado")
+    try:
+        dados = json.loads(conteudo)
+    except ValueError:
+        raise ErroFonte(f"{url} não devolveu JSON; nada foi gravado")
+    if dados.get("legislationIdentifier") != item["urn"] or item["numero"] not in dados.get("headline", ""):
+        raise ErroFonte(f"{url} devolveu outra norma ({dados.get('headline')}); nada foi gravado")
+    if not dados.get("hasPart"):
+        raise ErroFonte(f"{url} veio sem dispositivos; nada foi gravado")
     destino = pasta_fontes() / item["arquivo"]
     destino.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(item["url"], headers={"User-Agent": "estudo-anpd/0.1"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        if resp.status != 200:
-            raise ErroFonte(f"{item['url']} respondeu {resp.status}")
-        final = resp.geturl()
-        conteudo = resp.read()
-    if final.rstrip("/") != item["url"].rstrip("/"):
-        raise ErroFonte(f"{item['url']} redirecionou para {final}; nada foi gravado")
-    if len(conteudo) < 1000:
-        raise ErroFonte(f"{item['url']} devolveu só {len(conteudo)} bytes; nada foi gravado")
     destino.write_bytes(conteudo)
-    return registrar(item["arquivo"], item["norma"], item["orgao"], item["url"],
-                     f"obtido em {date.today().isoformat()}")
+    if dados.get("dateModified"):
+        versao = f"{dados['dateModified']} (última alteração segundo a API)"
+    else:
+        versao = f"{dados.get('legislationDate')} (data da lei; a API não registra alteração)"
+    entrada = registrar(item["arquivo"], item["norma"], ORIGEM_NORMAS, url,
+                        f"{versao}; obtido em {date.today().isoformat()}")
+    entrada.update({
+        "urn": item["urn"],
+        "pagina": PAGINA_NORMAS.format(urn=item["urn"]),
+        "titulo_oficial": dados.get("headline"),
+        "versoes_de_texto_na_fonte": _versoes_de_texto(dados),
+        "licenca": dados.get("license"),
+    })
+    entradas = [e for e in ler_index() if e["arquivo"] != item["arquivo"]] + [entrada]
+    gravar_index(entradas)
+    return entrada
 
 
 @dataclass

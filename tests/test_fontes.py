@@ -1,8 +1,12 @@
 import io
+import json
 
 import pytest
 
 from estudo import fontes
+
+ITEM = fontes.CATALOGO[0]
+URL = fontes.API_NORMAS.format(urn=ITEM["urn"])
 
 
 class Resp(io.BytesIO):
@@ -20,22 +24,39 @@ class Resp(io.BytesIO):
         return False
 
 
-ITEM = fontes.CATALOGO[0]
+def corpo(**extra):
+    d = {"legislationIdentifier": ITEM["urn"], "headline": "Lei nº 13.709, de 14 de agosto de 2018",
+         "dateModified": "2026-02-25", "hasPart": {"workExample": {}},
+         "encoding": [{"additionalType": "CompilacaoMonoVigenteNaCD",
+                       "legislationLegalValue": "UnofficialLegalValue"}]}
+    d.update(extra)
+    return json.dumps(d, ensure_ascii=False).encode("utf-8")
 
 
-def test_baixar_grava_e_registra_hash(ambiente, monkeypatch):
-    corpo = b"<html>" + b"x" * 5000 + b"</html>"
-    monkeypatch.setattr(fontes.urllib.request, "urlopen", lambda req, timeout: Resp(corpo, ITEM["url"]))
+def falso(monkeypatch, conteudo, url=URL):
+    monkeypatch.setattr(fontes.urllib.request, "urlopen", lambda req, timeout: Resp(conteudo, url))
+
+
+def test_baixar_grava_os_bytes_como_vieram_e_registra(ambiente, monkeypatch):
+    c = corpo()
+    falso(monkeypatch, c)
     e = fontes.baixar(ITEM)
-    assert (ambiente / "fontes" / ITEM["arquivo"]).read_bytes() == corpo
+    assert (ambiente / "fontes" / ITEM["arquivo"]).read_bytes() == c
     assert e["sha256"] == fontes.sha256(ambiente / "fontes" / ITEM["arquivo"])
-    assert e["url"] == ITEM["url"]
+    assert e["url"] == URL and e["urn"] == ITEM["urn"]
+    assert e["data_versao"].startswith("2026-02-25 (última alteração")
+    assert e["versoes_de_texto_na_fonte"] == ["CompilacaoMonoVigenteNaCD (UnofficialLegalValue)"]
     assert fontes.verificar() == []
 
 
-def test_redirecionamento_nao_grava_nada(ambiente, monkeypatch):
-    monkeypatch.setattr(fontes.urllib.request, "urlopen",
-                        lambda req, timeout: Resp(b"x" * 5000, "https://gov.br/planalto"))
-    with pytest.raises(fontes.ErroFonte, match="redirecionou"):
+@pytest.mark.parametrize("conteudo, url, motivo", [
+    (corpo(), "https://normas.leg.br/", "redirecionou"),
+    (b"<html>erro</html>", URL, "não devolveu JSON"),
+    (corpo(legislationIdentifier="urn:lex:br:federal:lei:2000-01-01;1"), URL, "outra norma"),
+    (corpo(hasPart=None), URL, "sem dispositivos"),
+])
+def test_resposta_suspeita_nao_grava_nada(ambiente, monkeypatch, conteudo, url, motivo):
+    falso(monkeypatch, conteudo, url)
+    with pytest.raises(fontes.ErroFonte, match=motivo):
         fontes.baixar(ITEM)
     assert not (ambiente / "fontes" / ITEM["arquivo"]).exists()

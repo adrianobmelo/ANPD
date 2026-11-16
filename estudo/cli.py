@@ -247,7 +247,7 @@ def arvore_listar():
 
 @fontes_app.command("baixar")
 def fontes_baixar():
-    """Baixa o núcleo (LGPD, 15.352, 14.133) das URLs oficiais do Planalto."""
+    """Baixa LGPD, 15.352 e 14.133 do normas.leg.br (Congresso Nacional) e registra o hash."""
     falhas = 0
     for item in fontes.CATALOGO:
         try:
